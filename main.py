@@ -1,23 +1,23 @@
 #!/usr/bin/python2
 # -*- coding: utf-8 -*-
 
-import gobject
-from gi.repository import Gtk, Gdk
+import pygtk
+import gtk
 
 class Color():
     name = ""
     
     def __init__(self, red, blue, green):
-        self.color = Gdk.Color(red, blue, green)
+        self.color = gtk.gdk.Color(red, blue, green)
 
 class scolor():
     
     def main_quit(self, widget=None):
-        Gtk.main_quit()
+        gtk.main_quit()
 
     def __init__(self):
-        self.gui = Gtk.Builder()
-        self.gui.add_from_file("scolor.glade")
+        self.gui = gtk.Builder()
+        self.gui.add_from_file("scolor2.glade")
         self.window = self.gui.get_object("mainwindow")
         self.colorlist = self.gui.get_object("colorlist")
         self.colorbox = self.gui.get_object("colorbox")
@@ -35,11 +35,13 @@ class scolor():
         self.window.show_all()
         
     def new_color(self, red, green, blue, name="", act=False):
-        col = Color(red, green, blue)
+        print red, green, blue
+        col = Color(int(red), int(green), int(blue))
+        print col.color.red
         self.colorlist.append(col)
         col.name = col.name
-        eb = Gtk.EventBox()
-        label = Gtk.Label()
+        eb = gtk.EventBox()
+        label = gtk.Label()
         eb.add(label)
         eb.modify_bg(0, col.color)
         if act:
@@ -47,7 +49,7 @@ class scolor():
         self.colorlist.append(col)
         label.set_text(col.name + "\n" + col.color.to_string())
         if (col.color.red + col.color.green + col.color.blue) < 100000:
-            label.modify_fg(0, Gdk.Color(65535, 65535, 65535))
+            label.modify_fg(0, gtk.gdk.Color(65535, 65535, 65535))
         self.colorbox.pack_start(eb, True, True, 0)
         eb.show_all()
      
@@ -80,6 +82,7 @@ class scolor():
                 act = True
             else:
                 act = False
+            print color.red, color.green, rstep, rstep * i
             self.new_color(color.red + rstep*i, color.green + gstep*i, color.blue + bstep*i, act)
             
     def set_color(self, widget=None):
@@ -148,4 +151,4 @@ class scolor():
         
 if __name__ == "__main__":
     scolor()
-    Gtk.main()
+    gtk.main()
