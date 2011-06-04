@@ -37,6 +37,29 @@ class Color():
     
     def __init__(self, red, blue, green):
         self.color = gtk.gdk.Color(red, blue, green)
+    
+    def get_hexstr(self):
+        red, green, blue = self.get_rgb()
+        return "#%02x%02x%02x" % (red, green, blue)
+        
+    
+    def get_rgbstr(self):
+        red, green, blue = self.get_rgb()
+        return "rgb(%s, %s, %s)" % (red, green, blue)
+        
+    def get_hex(self):
+        red, green, blue = self.get_rgb()
+        return hex(red), hex(green), hex(blue)
+    
+    def get_rgb(self):
+        red = self.color.red
+        green = self.color.green
+        blue = self.color.blue
+        pers = (65535 / 100.0)
+        red = int(round(red / pers * 2.55))
+        green = int(round(green / pers * 2.55))
+        blue = int(round(blue / pers * 2.55))
+        return red, green, blue
 
 class scolor():
     
@@ -49,6 +72,7 @@ class scolor():
         self.config.set('WINDOW','paned_pos',self.mainhpane.get_position())
         self.config.set('WINDOW','last_mode', self.modebox.get_active())
         self.config.set('WINDOW','colorcount', int(self.colorcount.get_value()))
+        self.config.set('WINDOW','colorpos', int(self.colorpos.get_value()))
         self.config.set('WINDOW', 'columnwidth', int(self.treeview.get_column(0).get_width()))
         
         if not self.config.has_section("LASTCOL"):
@@ -129,6 +153,7 @@ class scolor():
         self.colorbox = self.gui.get_object("colorbox")
         self.modebox = self.gui.get_object("modebox")
         self.colorcount = self.gui.get_object("colorcount")
+        self.colorpos = self.gui.get_object("colorpos")
         self.colorbutton = self.gui.get_object("colorbutton")
         self.mainhpane = self.gui.get_object("mainhpane")
         self.mainhpane.resize = True
@@ -141,6 +166,7 @@ class scolor():
             self.mainhpane.set_position(int(self.config.get("WINDOW", "paned_pos")))
             self.modebox.set_active(int(self.config.get("WINDOW", "last_mode")))
             self.colorcount.set_value(int(self.config.get("WINDOW", "colorcount")))
+            self.colorpos.set_value(int(self.config.get("WINDOW", "colorpos")))
             #self.treeview.get_column(0).set_width(int(self.config.get("WINDOW", "columnwidth")))
         
         if self.config.has_section("LASTCOL"):
@@ -206,7 +232,7 @@ class scolor():
                     col.name = self.xmlgetText(name)
                     col.group = groupn
                     pixbuf = self.draw_colorbuf(col.color)
-                    newcol = [0, col.color.to_string(), col.name, col.color.red, col.color.green, col.color.blue, pixbuf]
+                    newcol = [0, col.get_hexstr(), col.name, col.color.red, col.color.green, col.color.blue, pixbuf]
                     self.colorview.append(piter, newcol)
                 self.treeview.expand_all()
 
@@ -226,7 +252,8 @@ class scolor():
         if act:
             frame.modify_bg(0, gtk.gdk.Color(0, 0, 0))
         self.colorlist.append(col)
-        label.set_text(col.name + "\n" + col.color.to_string())
+        label.set_text("%s\n%s\n%s" % (col.name, col.get_hexstr(), col.get_rgbstr()))
+        label.set_justify(gtk.JUSTIFY_CENTER)
         if (col.color.red + col.color.green + col.color.blue) < 100000:
             label.modify_fg(0, gtk.gdk.Color(65535, 65535, 65535))
         self.colorbox.pack_start(frame, True, True, 0)
@@ -245,28 +272,48 @@ class scolor():
             self.colorbox.remove(i)
             
         del self.colorlist[:]
+        
         count = self.colorcount.get_value()
-        if count > 1:
-            rstep = (65535-color.color.red) / (count-1)
-            gstep = (65535-color.color.green) / (count-1)
-            bstep = (65535-color.color.blue) / (count-1)
+        pos = self.colorpos.get_value()
+        
+        if pos > count:
+            pos = count
+            self.colorpos.set_value(pos)
+        
+        self.colorpos.set_range(1, count)
+        
+        if pos > 1:
+            rdstep = (color.color.red) / (pos-1)
+            gdstep = (color.color.green) / (pos-1)
+            bdstep = (color.color.blue) / (pos-1)
         else:
-            rstep = (65535-color.color.red) / count
-            gstep = (65535-color.color.green) / count
-            bstep = (65535-color.color.blue) / count
+            rdstep = color.color.red
+            gdstep = color.color.green
+            bdstep = color.color.blue
+        
+        for i in range(1, int(pos)):
+            i = pos - i
+            red = int(color.color.red - rdstep*i)
+            green = int(color.color.green - gdstep*i)
+            blue = int(color.color.blue - bdstep*i)
+            self.new_color(red, green, blue)
+            
+        self.new_color(color.color.red, color.color.green, color.color.blue, act=True, name=color.name)
+        
+        if (count-pos) > 1:
+            rlstep = (65535-color.color.red) / (count-pos)
+            glstep = (65535-color.color.green) / (count-pos)
+            blstep = (65535-color.color.blue) / (count-pos)
+        else:
+            rlstep = 65535-color.color.red
+            glstep = 65535-color.color.green
+            blstep = 65535-color.color.blue
 
-        for i in range(0, int(count)):
-            red = int(color.color.red + rstep*i)
-            green = int(color.color.green + gstep*i)
-            blue = int(color.color.blue + bstep*i)
-            checkcol = Color(red, green, blue)
-            if checkcol.color == self.actcolor.color:
-                act = True
-                name=color.name
-            else:
-                act = False
-                name=""
-            self.new_color(red, green, blue, act=act, name=name)
+        for i in range(1, int(count-pos+1)):
+            red = int(color.color.red + rlstep*i)
+            green = int(color.color.green + glstep*i)
+            blue = int(color.color.blue + blstep*i)
+            self.new_color(red, green, blue)
             
     def set_color(self, widget=None):
         colorsel = self.colorbutton.get_color()
@@ -348,7 +395,7 @@ class scolor():
     def change_color(self, color):
         self.actcolor = color
         self.statusbar.pop(0)
-        self.statusbar.push(0, "Current color: " + self.actcolor.color.to_string())
+        self.statusbar.push(0, "Current color: %s" % self.actcolor.get_hexstr())
         self.colorbutton.set_color(self.actcolor.color)
         
     
@@ -356,7 +403,7 @@ class scolor():
         if col == None:
             col = self.actcolor
         pixbuf = self.draw_colorbuf(col.color)
-        newcol = [0, col.color.to_string(), col.name, col.color.red, col.color.green, col.color.blue, pixbuf]
+        newcol = [0, col.get_hexstr(), col.name, col.color.red, col.color.green, col.color.blue, pixbuf]
         row, col = self.treeview.get_cursor()
         if row != None:
             if self.colorview[row][0] == True and len(row) == 1:
