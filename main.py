@@ -29,7 +29,7 @@ import ConfigParser
 import xml.dom.minidom
 
 pname = "Scolor"
-version = "0.3"
+version = "0.4"
 
 class Color():
     name = ""
@@ -274,7 +274,6 @@ class scolor():
             color = self.actcolor
         colors = self.colorbox.get_children()
         for i in colors:
-            print self.colorbox.child_get(i, "position")
             self.colorbox.remove(i)
             
         del self.colorlist[:]
@@ -527,6 +526,7 @@ class scolor():
         return string.strip()
     
     def about(self, widget=None):
+        pixbuf = gtk.gdk.pixbuf_new_from_file("icon.svg")
         aboutwindow = gtk.AboutDialog()
         aboutwindow.set_parent(self.window)
         aboutwindow.set_title("About " + pname)
@@ -538,6 +538,7 @@ class scolor():
         aboutwindow.set_website_label("Github Page")
         aboutwindow.set_authors(["Phillip Thelen <viirus@pherth.net>",])
         aboutwindow.set_wrap_license(True)
+        aboutwindow.set_logo(pixbuf)
         aboutwindow.set_license("""Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
