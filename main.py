@@ -339,8 +339,8 @@ class scolor():
         else:
             color.color.blue = 65535
         self.actcolor = color
-        self.redraw_colors(self, color=color)
-        self.reload_toolbar(self, color=color)
+        self.redraw_colors()
+        self.reload_toolbar()
         
     def darken_color(self, widget=None, color=None):
         if color == None:
@@ -360,16 +360,63 @@ class scolor():
         else:
             color.color.blue = 0
         self.actcolor = color
-        self.redraw_colors(self, color=color)
-        self.reload_toolbar(self, color=color)
+        self.redraw_colors()
+        self.reload_toolbar()
         
     def saturate_color(self, widget=None, color=None):
         if color == None:
             color = self.actcolor
+        red = color.color.red
+        green = color.color.green
+        blue = color.color.blue
+        avg = (red + green + blue) / 3
+        if red > avg and red <= 61535:
+            red += 4000
+        elif red < avg-2000 and red  >= 4000:
+            red -= 4000
+            
+        if green > avg+2000 and green <= 61535:
+            green += 4000
+        elif green < avg-2000 and green >= 4000:
+            green -= 4000
+            
+        if blue > avg+2000 and blue <= 61535:
+            blue += 4000
+        elif blue < avg-2000 and blue >= 4000:
+            blue -= 4000
+        color.color.red = red
+        color.color.green = green
+        color.color.blue = blue
+        self.change_color(color)
+        self.redraw_colors()
 
     def desaturate_color(self, widget=None, color=None):
         if color == None:
             color = self.actcolor
+        red = color.color.red
+        green = color.color.green
+        blue = color.color.blue
+        avg = (red + green + blue) / 3
+        if red >= avg+4000:
+            red -= 4000
+        elif red <= avg-4000:
+            red += 4000
+            
+        if green >= avg+4000:
+            green -= 4000
+        elif green <= avg-4000:
+            green += 4000
+            
+        if blue >= avg+4000:
+            blue -= 4000
+        elif blue <= avg-4000:
+            blue += 4000
+        color.color.red = red
+        color.color.green = green
+        color.color.blue = blue
+        self.change_color(color)
+        self.redraw_colors()
+        #self.reload_toolbar(self, color=color)
         
     def random_color(self, widget=None):
             red = random.randint(1, 65535)
