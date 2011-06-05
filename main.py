@@ -40,7 +40,7 @@ class Color():
     
     def get_hexstr(self):
         red, green, blue = self.get_rgb()
-        return "#%02x%02x%02x" % (red, green, blue)
+        return "#%02X%02X%02X" % (red, green, blue)
         
     
     def get_rgbstr(self):
@@ -161,6 +161,11 @@ class scolor():
         self.treeview = self.gui.get_object("treeview")
         self.removegroupsave = self.gui.get_object("removegroupsave")
         self.removecolorsave = self.gui.get_object("removecolorsave")
+        self.colorpopup = self.gui.get_object("colorpopup")
+        self.clipboard = gtk.clipboard_get(gtk.gdk.SELECTION_CLIPBOARD)
+        self.popupcopy = self.gui.get_object("copybutton")
+        self.popupremove = self.gui.get_object("removebutton")
+        
         if self.config.has_section('WINDOW'):
             self.window.resize(int(self.config.get("WINDOW", "width")), int(self.config.get("WINDOW", "height")))
             self.mainhpane.set_position(int(self.config.get("WINDOW", "paned_pos")))
@@ -269,6 +274,7 @@ class scolor():
             color = self.actcolor
         colors = self.colorbox.get_children()
         for i in colors:
+            print self.colorbox.child_get(i, "position")
             self.colorbox.remove(i)
             
         del self.colorlist[:]
@@ -391,6 +397,12 @@ class scolor():
                 self.change_color(self.colorlist[i])
             else:
                 frame.modify_bg(0, gtk.gdk.Color(65535, 65535, 65535))
+        if event.button == 3:
+            self.popupremove.set_sensitive(False)
+            self.popupcopy.set_sensitive(True)
+            time = event.time
+            self.colorpopup.popup( None, None, None, event.button, time)
+            return True
     
     def change_color(self, color):
         self.actcolor = color
@@ -480,6 +492,31 @@ class scolor():
         else:
             self.removecolorsave.set_sensitive(False)
             self.removegroupsave.set_sensitive(True)
+    
+    def popup_menu_treeview(self,widget=None, event=None):
+        if event.button == 3:
+            x = int(event.x)
+            y = int(event.y)
+            time = event.time
+            pthinfo = self.treeview.get_path_at_pos(x, y)
+            if pthinfo is not None:
+                path, col, cellx, celly = pthinfo
+                item = self.colorview[path]
+                self.popupremove.set_sensitive(True)
+                if item[0] == False:
+                    self.popupcopy.set_sensitive(True)
+                    self.popupremove.connect("activate", self.remove_color)
+                else:
+                    self.popupcopy.set_sensitive(False)
+                    self.popupremove.connect("activate", self.remove_group)
+                self.treeview.grab_focus()
+                self.treeview.set_cursor( path, col, 0)
+                self.colorpopup.popup( None, None, None, event.button, time, self.actcolor)
+            return True
+    
+    def copy_color(self, widget):
+        hexstr = self.actcolor.get_hexstr()
+        self.clipboard.set_text(hexstr)
     
     def xmlgetText(self, nodelist):
         rc = []
