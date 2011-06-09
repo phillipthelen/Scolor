@@ -110,6 +110,7 @@
     <property name="window_position">center</property>
     <property name="default_width">900</property>
     <property name="default_height">500</property>
+    <property name="icon">icon.svg</property>
     <child>
       <object class="GtkVBox" id="vbox1">
         <property name="visible">True</property>
@@ -548,13 +549,18 @@
                         <property name="model">colorstore</property>
                         <property name="headers_clickable">False</property>
                         <property name="expander_column">treeviewcolumn1</property>
+                        <property name="reorderable">True</property>
                         <property name="search_column">0</property>
                         <signal name="cursor-changed" handler="colorrow_selected" swapped="no"/>
                         <signal name="button-press-event" handler="popup_menu_treeview" swapped="no"/>
+                        <signal name="drag-motion" handler="color_dragged" swapped="no"/>
+                        <signal name="drag-begin" handler="drag_starts" swapped="no"/>
                         <child>
                           <object class="GtkTreeViewColumn" id="treeviewcolumn1">
                             <property name="resizable">True</property>
+                            <property name="sizing">autosize</property>
                             <property name="title" translatable="yes">Name</property>
+                            <property name="clickable">True</property>
                             <child>
                               <object class="GtkCellRendererPixbuf" id="colorbufcell"/>
                               <attributes>

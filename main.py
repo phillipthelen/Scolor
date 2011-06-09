@@ -156,7 +156,7 @@ class scolor():
         self.colorpos = self.gui.get_object("colorpos")
         self.colorbutton = self.gui.get_object("colorbutton")
         self.mainhpane = self.gui.get_object("mainhpane")
-        self.mainhpane.resize = True
+        self.mainhpane.resize = False
         self.statusbar = self.gui.get_object("statusbar")
         self.treeview = self.gui.get_object("treeview")
         self.removegroupsave = self.gui.get_object("removegroupsave")
@@ -524,6 +524,20 @@ class scolor():
                 rc.append(node.data)
         string = ''.join(rc)
         return string.strip()
+    
+    def drag_starts(self, widget, context):
+        self.cursorpos = self.treeview.get_cursor()
+    
+    def dragged(self, widget, context):
+        None
+    
+    def color_dragged(self, widget, context, x, y, time):
+        pthinfo = self.treeview.get_path_at_pos(x, y)
+        if pthinfo is not None:
+                print pthinfo
+                path, col, cellx, celly = pthinfo
+                item = self.colorview[path]
+                #if item[0] == False:
     
     def about(self, widget=None):
         pixbuf = gtk.gdk.pixbuf_new_from_file("icon.svg")
