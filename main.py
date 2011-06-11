@@ -73,7 +73,8 @@ class scolor():
         self.config.set('WINDOW','last_mode', self.modebox.get_active())
         self.config.set('WINDOW','colorcount', int(self.colorcount.get_value()))
         self.config.set('WINDOW','colorpos', int(self.colorpos.get_value()))
-        self.config.set('WINDOW', 'columnwidth', int(self.treeview.get_column(0).get_width()))
+        self.config.set('WINDOW','columnwidth', int(self.treeview.get_column(0).get_width()))
+        self.config.set('WINDOW','compareexpanded', int(self.compareexpander.get_expanded()))
         
         if not self.config.has_section("LASTCOL"):
             self.config.add_section("LASTCOL")
@@ -158,20 +159,28 @@ class scolor():
         self.mainhpane = self.gui.get_object("mainhpane")
         self.mainhpane.resize = False
         self.statusbar = self.gui.get_object("statusbar")
+        self.compareexpander = self.gui.get_object("compareexpander")
+        self.comparisonbox = self.gui.get_object("comparisonbox")
+        print self.comparisonbox
         self.treeview = self.gui.get_object("treeview")
+        self.treeselection = self.treeview.get_selection()
+        self.treeselection.set_mode(gtk.SELECTION_MULTIPLE)
+        self.treeselection.connect("changed", self.redraw_comparison)
         self.removegroupsave = self.gui.get_object("removegroupsave")
         self.removecolorsave = self.gui.get_object("removecolorsave")
         self.colorpopup = self.gui.get_object("colorpopup")
         self.clipboard = gtk.clipboard_get(gtk.gdk.SELECTION_CLIPBOARD)
         self.popupcopy = self.gui.get_object("copybutton")
         self.popupremove = self.gui.get_object("removebutton")
-        
+        self.tooltips = gtk.Tooltips()
+                
         if self.config.has_section('WINDOW'):
             self.window.resize(int(self.config.get("WINDOW", "width")), int(self.config.get("WINDOW", "height")))
             self.mainhpane.set_position(int(self.config.get("WINDOW", "paned_pos")))
             self.modebox.set_active(int(self.config.get("WINDOW", "last_mode")))
             self.colorcount.set_value(int(self.config.get("WINDOW", "colorcount")))
             self.colorpos.set_value(int(self.config.get("WINDOW", "colorpos")))
+            self.compareexpander.set_expanded(int(self.config.get("WINDOW", "compareexpanded")))
             #self.treeview.get_column(0).set_width(int(self.config.get("WINDOW", "columnwidth")))
         
         if self.config.has_section("LASTCOL"):
@@ -417,7 +426,7 @@ class scolor():
         newcol = [0, col.get_hexstr(), col.name, col.color.red, col.color.green, col.color.blue, pixbuf]
         row, col = self.treeview.get_cursor()
         if row != None:
-            if self.colorview[row][0] == True and len(row) == 1:
+            if self.colorview[row][0] == True or len(row) == 2:
                 piter = self.colorview.get_iter(row[0])
                 firrow = self.colorview.get_path(piter)[0]
                 secrow = self.colorview.iter_n_children(piter)
@@ -534,10 +543,41 @@ class scolor():
     def color_dragged(self, widget, context, x, y, time):
         pthinfo = self.treeview.get_path_at_pos(x, y)
         if pthinfo is not None:
-                print pthinfo
                 path, col, cellx, celly = pthinfo
                 item = self.colorview[path]
                 #if item[0] == False:
+    
+    def redraw_comparison(self, widget=None):
+        widgets = self.comparisonbox.get_children()
+        rows = self.treeselection.get_selected_rows()
+        for i in widgets:
+            self.comparisonbox.remove(i)
+        for row in rows[1]:
+            item = self.colorview[row]
+            if item[0] == False:
+                color = Color(item[3], item[4], item[5])
+                color.name = item[2]
+                eb = gtk.EventBox()
+                eb.modify_bg(0, color.color)
+                self.tooltips.set_tip(eb, "%s\n%s\n%s" % (color.name, color.get_hexstr(), color.get_rgbstr()))
+                self.comparisonbox.pack_start(eb, True, True, 0)
+                eb.show_all()
+            else:
+                piter = self.colorview.get_iter(row[0])
+                children = self.colorview.iter_n_children(piter)
+                for i in range(0, children):
+                    child = self.colorview.iter_nth_child(piter, i)
+                    name, red, green, blue = self.colorview.get(child, 2, 3, 4, 5)
+                    color = Color(red, green, blue)
+                    color.name = name
+                    eb = gtk.EventBox()
+                    eb.modify_bg(0, color.color)
+                    self.tooltips.set_tip(eb, "%s\n%s\n%s" % (color.name, color.get_hexstr(), color.get_rgbstr()))
+                    self.comparisonbox.pack_start(eb, True, True, 0)
+                    eb.show_all()
+    
+    def change_expander(self, wiget):
+        None
     
     def about(self, widget=None):
         pixbuf = gtk.gdk.pixbuf_new_from_file("icon.svg")
