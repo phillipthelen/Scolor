@@ -27,6 +27,7 @@ import random
 import os
 import ConfigParser
 import xml.dom.minidom
+import time
 
 pname = "Scolor"
 version = "0.4"
@@ -161,7 +162,9 @@ class scolor():
         self.statusbar = self.gui.get_object("statusbar")
         self.compareexpander = self.gui.get_object("compareexpander")
         self.comparisonbox = self.gui.get_object("comparisonbox")
-        print self.comparisonbox
+        self.comparisonbox.drag_source_set(gtk.gdk.BUTTON1_MASK, [], 0)
+        self.comparisonbox.drag_dest_set(0, [], gtk.gdk.ACTION_MOVE)
+        self.leftvbox = self.gui.get_object("leftvbox")
         self.treeview = self.gui.get_object("treeview")
         self.treeselection = self.treeview.get_selection()
         self.treeselection.set_mode(gtk.SELECTION_MULTIPLE)
@@ -443,18 +446,19 @@ class scolor():
             self.treeview.expand_row(row, True)
         self.treeview.set_cursor(path, col, True)
     
-    def draw_colorbuf(self, color):
-        pixbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8, 16, 16)
-        drawable = gtk.gdk.Pixmap(None, 16, 16, 24)
+    def draw_colorbuf(self, color, x=16, y=16, border=True):
+        pixbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8, x, y)
+        drawable = gtk.gdk.Pixmap(None, x, y, 24)
         gc = drawable.new_gc()
         cmap = gc.get_colormap()
         color = cmap.alloc_color(color)
         gc.set_foreground(color)
-        drawable.draw_rectangle(gc, True, 0, 0, 15, 15)
-        color = cmap.alloc_color("Black")
-        gc.set_foreground(color)
-        drawable.draw_rectangle(gc, False, 0, 0, 15, 15)
-        pixbuf.get_from_drawable(drawable, cmap, 0, 0, 0, 0, 16, 16)
+        drawable.draw_rectangle(gc, True, 0, 0, x-1, y-1)
+        if border:
+            color = cmap.alloc_color("Black")
+            gc.set_foreground(color)
+            drawable.draw_rectangle(gc, False, 0, 0, x-1, y-1)
+        pixbuf.get_from_drawable(drawable, cmap, 0, 0, 0, 0, x, y)
         return pixbuf
     
     def remove_color(self, widget=None):
@@ -533,19 +537,39 @@ class scolor():
                 rc.append(node.data)
         string = ''.join(rc)
         return string.strip()
-    
+        
+    def drag_select(self, widget, context):
+        self.dragwidget = widget
+
     def drag_starts(self, widget, context):
-        self.cursorpos = self.treeview.get_cursor()
-    
-    def dragged(self, widget, context):
-        None
+        color = self.dragwidget.get_style().bg[0]
+        context.set_icon_pixbuf(self.draw_colorbuf(color, 32, 32), 20, 22)
+        self.dragwidget.hide()
+        
+    def drag_dropped(self, widget, context, x, y, time):
+        position = -1
+        for widget in self.comparisonbox.get_children():
+            alloc = widget.get_allocation()
+            if alloc.x +  (alloc.width / 2) > x:
+                position = self.comparisonbox.child_get_property(widget, "position")
+                if position > self.comparisonbox.child_get_property(self.dragwidget, "position"):
+                    position -= 1
+                break
+        self.comparisonbox.reorder_child(self.dragwidget, position)
+        self.dragwidget.show_all()
+        self.dragwidget = None
+        context.finish(True, False, time)
+        return True
+
+    def drag_motion(self, widget, context, x, y, time):
+        context.drag_status(gtk.gdk.ACTION_MOVE, time)
+        return True
     
     def color_dragged(self, widget, context, x, y, time):
         pthinfo = self.treeview.get_path_at_pos(x, y)
         if pthinfo is not None:
                 path, col, cellx, celly = pthinfo
                 item = self.colorview[path]
-                #if item[0] == False:
     
     def redraw_comparison(self, widget=None):
         widgets = self.comparisonbox.get_children()
@@ -559,6 +583,7 @@ class scolor():
                 color.name = item[2]
                 eb = gtk.EventBox()
                 eb.modify_bg(0, color.color)
+                eb.connect("button-press-event", self.drag_select)
                 self.tooltips.set_tip(eb, "%s\n%s\n%s" % (color.name, color.get_hexstr(), color.get_rgbstr()))
                 self.comparisonbox.pack_start(eb, True, True, 0)
                 eb.show_all()
@@ -572,12 +597,10 @@ class scolor():
                     color.name = name
                     eb = gtk.EventBox()
                     eb.modify_bg(0, color.color)
+                    eb.connect("button-press-event", self.drag_select)
                     self.tooltips.set_tip(eb, "%s\n%s\n%s" % (color.name, color.get_hexstr(), color.get_rgbstr()))
                     self.comparisonbox.pack_start(eb, True, True, 0)
                     eb.show_all()
-    
-    def change_expander(self, wiget):
-        None
     
     def about(self, widget=None):
         pixbuf = gtk.gdk.pixbuf_new_from_file("icon.svg")
