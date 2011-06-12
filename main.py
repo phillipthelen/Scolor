@@ -27,9 +27,10 @@ import random
 import os
 import ConfigParser
 import xml.dom.minidom
+import time
 
 pname = "Scolor"
-version = "0.3"
+version = "0.4"
 
 class Color():
     name = ""
@@ -40,7 +41,7 @@ class Color():
     
     def get_hexstr(self):
         red, green, blue = self.get_rgb()
-        return "#%02x%02x%02x" % (red, green, blue)
+        return "#%02X%02X%02X" % (red, green, blue)
         
     
     def get_rgbstr(self):
@@ -73,7 +74,8 @@ class scolor():
         self.config.set('WINDOW','last_mode', self.modebox.get_active())
         self.config.set('WINDOW','colorcount', int(self.colorcount.get_value()))
         self.config.set('WINDOW','colorpos', int(self.colorpos.get_value()))
-        self.config.set('WINDOW', 'columnwidth', int(self.treeview.get_column(0).get_width()))
+        self.config.set('WINDOW','columnwidth', int(self.treeview.get_column(0).get_width()))
+        self.config.set('WINDOW','compareexpanded', int(self.compareexpander.get_expanded()))
         
         if not self.config.has_section("LASTCOL"):
             self.config.add_section("LASTCOL")
@@ -156,17 +158,32 @@ class scolor():
         self.colorpos = self.gui.get_object("colorpos")
         self.colorbutton = self.gui.get_object("colorbutton")
         self.mainhpane = self.gui.get_object("mainhpane")
-        self.mainhpane.resize = True
+        self.mainhpane.resize = False
         self.statusbar = self.gui.get_object("statusbar")
+        self.compareexpander = self.gui.get_object("compareexpander")
+        self.comparisonbox = self.gui.get_object("comparisonbox")
+        self.comparisonbox.drag_source_set(gtk.gdk.BUTTON1_MASK, [], 0)
+        self.comparisonbox.drag_dest_set(0, [], gtk.gdk.ACTION_MOVE)
+        self.leftvbox = self.gui.get_object("leftvbox")
         self.treeview = self.gui.get_object("treeview")
+        self.treeselection = self.treeview.get_selection()
+        self.treeselection.set_mode(gtk.SELECTION_MULTIPLE)
+        self.treeselection.connect("changed", self.redraw_comparison)
         self.removegroupsave = self.gui.get_object("removegroupsave")
         self.removecolorsave = self.gui.get_object("removecolorsave")
+        self.colorpopup = self.gui.get_object("colorpopup")
+        self.clipboard = gtk.clipboard_get(gtk.gdk.SELECTION_CLIPBOARD)
+        self.popupcopy = self.gui.get_object("copybutton")
+        self.popupremove = self.gui.get_object("removebutton")
+        self.tooltips = gtk.Tooltips()
+                
         if self.config.has_section('WINDOW'):
             self.window.resize(int(self.config.get("WINDOW", "width")), int(self.config.get("WINDOW", "height")))
             self.mainhpane.set_position(int(self.config.get("WINDOW", "paned_pos")))
             self.modebox.set_active(int(self.config.get("WINDOW", "last_mode")))
             self.colorcount.set_value(int(self.config.get("WINDOW", "colorcount")))
             self.colorpos.set_value(int(self.config.get("WINDOW", "colorpos")))
+            self.compareexpander.set_expanded(int(self.config.get("WINDOW", "compareexpanded")))
             #self.treeview.get_column(0).set_width(int(self.config.get("WINDOW", "columnwidth")))
         
         if self.config.has_section("LASTCOL"):
@@ -438,6 +455,12 @@ class scolor():
                 self.change_color(self.colorlist[i])
             else:
                 frame.modify_bg(0, gtk.gdk.Color(65535, 65535, 65535))
+        if event.button == 3:
+            self.popupremove.set_sensitive(False)
+            self.popupcopy.set_sensitive(True)
+            time = event.time
+            self.colorpopup.popup( None, None, None, event.button, time)
+            return True
     
     def change_color(self, color):
         self.actcolor = color
@@ -453,7 +476,7 @@ class scolor():
         newcol = [0, col.get_hexstr(), col.name, col.color.red, col.color.green, col.color.blue, pixbuf]
         row, col = self.treeview.get_cursor()
         if row != None:
-            if self.colorview[row][0] == True and len(row) == 1:
+            if self.colorview[row][0] == True or len(row) == 2:
                 piter = self.colorview.get_iter(row[0])
                 firrow = self.colorview.get_path(piter)[0]
                 secrow = self.colorview.iter_n_children(piter)
@@ -470,18 +493,19 @@ class scolor():
             self.treeview.expand_row(row, True)
         self.treeview.set_cursor(path, col, True)
     
-    def draw_colorbuf(self, color):
-        pixbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8, 16, 16)
-        drawable = gtk.gdk.Pixmap(None, 16, 16, 24)
+    def draw_colorbuf(self, color, x=16, y=16, border=True):
+        pixbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8, x, y)
+        drawable = gtk.gdk.Pixmap(None, x, y, 24)
         gc = drawable.new_gc()
         cmap = gc.get_colormap()
         color = cmap.alloc_color(color)
         gc.set_foreground(color)
-        drawable.draw_rectangle(gc, True, 0, 0, 15, 15)
-        color = cmap.alloc_color("Black")
-        gc.set_foreground(color)
-        drawable.draw_rectangle(gc, False, 0, 0, 15, 15)
-        pixbuf.get_from_drawable(drawable, cmap, 0, 0, 0, 0, 16, 16)
+        drawable.draw_rectangle(gc, True, 0, 0, x-1, y-1)
+        if border:
+            color = cmap.alloc_color("Black")
+            gc.set_foreground(color)
+            drawable.draw_rectangle(gc, False, 0, 0, x-1, y-1)
+        pixbuf.get_from_drawable(drawable, cmap, 0, 0, 0, 0, x, y)
         return pixbuf
     
     def remove_color(self, widget=None):
@@ -528,6 +552,31 @@ class scolor():
             self.removecolorsave.set_sensitive(False)
             self.removegroupsave.set_sensitive(True)
     
+    def popup_menu_treeview(self,widget=None, event=None):
+        if event.button == 3:
+            x = int(event.x)
+            y = int(event.y)
+            time = event.time
+            pthinfo = self.treeview.get_path_at_pos(x, y)
+            if pthinfo is not None:
+                path, col, cellx, celly = pthinfo
+                item = self.colorview[path]
+                self.popupremove.set_sensitive(True)
+                if item[0] == False:
+                    self.popupcopy.set_sensitive(True)
+                    self.popupremove.connect("activate", self.remove_color)
+                else:
+                    self.popupcopy.set_sensitive(False)
+                    self.popupremove.connect("activate", self.remove_group)
+                self.treeview.grab_focus()
+                self.treeview.set_cursor( path, col, 0)
+                self.colorpopup.popup( None, None, None, event.button, time, self.actcolor)
+            return True
+    
+    def copy_color(self, widget):
+        hexstr = self.actcolor.get_hexstr()
+        self.clipboard.set_text(hexstr)
+    
     def xmlgetText(self, nodelist):
         rc = []
         for node in nodelist:
@@ -535,8 +584,73 @@ class scolor():
                 rc.append(node.data)
         string = ''.join(rc)
         return string.strip()
+        
+    def drag_select(self, widget, context):
+        self.dragwidget = widget
+
+    def drag_starts(self, widget, context):
+        color = self.dragwidget.get_style().bg[0]
+        context.set_icon_pixbuf(self.draw_colorbuf(color, 32, 32), 20, 22)
+        self.dragwidget.hide()
+        
+    def drag_dropped(self, widget, context, x, y, time):
+        position = -1
+        for widget in self.comparisonbox.get_children():
+            alloc = widget.get_allocation()
+            if alloc.x +  (alloc.width / 2) > x:
+                position = self.comparisonbox.child_get_property(widget, "position")
+                if position > self.comparisonbox.child_get_property(self.dragwidget, "position"):
+                    position -= 1
+                break
+        self.comparisonbox.reorder_child(self.dragwidget, position)
+        self.dragwidget.show_all()
+        self.dragwidget = None
+        context.finish(True, False, time)
+        return True
+
+    def drag_motion(self, widget, context, x, y, time):
+        context.drag_status(gtk.gdk.ACTION_MOVE, time)
+        return True
+    
+    def color_dragged(self, widget, context, x, y, time):
+        pthinfo = self.treeview.get_path_at_pos(x, y)
+        if pthinfo is not None:
+                path, col, cellx, celly = pthinfo
+                item = self.colorview[path]
+    
+    def redraw_comparison(self, widget=None):
+        widgets = self.comparisonbox.get_children()
+        rows = self.treeselection.get_selected_rows()
+        for i in widgets:
+            self.comparisonbox.remove(i)
+        for row in rows[1]:
+            item = self.colorview[row]
+            if item[0] == False:
+                color = Color(item[3], item[4], item[5])
+                color.name = item[2]
+                eb = gtk.EventBox()
+                eb.modify_bg(0, color.color)
+                eb.connect("button-press-event", self.drag_select)
+                self.tooltips.set_tip(eb, "%s\n%s\n%s" % (color.name, color.get_hexstr(), color.get_rgbstr()))
+                self.comparisonbox.pack_start(eb, True, True, 0)
+                eb.show_all()
+            else:
+                piter = self.colorview.get_iter(row[0])
+                children = self.colorview.iter_n_children(piter)
+                for i in range(0, children):
+                    child = self.colorview.iter_nth_child(piter, i)
+                    name, red, green, blue = self.colorview.get(child, 2, 3, 4, 5)
+                    color = Color(red, green, blue)
+                    color.name = name
+                    eb = gtk.EventBox()
+                    eb.modify_bg(0, color.color)
+                    eb.connect("button-press-event", self.drag_select)
+                    self.tooltips.set_tip(eb, "%s\n%s\n%s" % (color.name, color.get_hexstr(), color.get_rgbstr()))
+                    self.comparisonbox.pack_start(eb, True, True, 0)
+                    eb.show_all()
     
     def about(self, widget=None):
+        pixbuf = gtk.gdk.pixbuf_new_from_file("icon.svg")
         aboutwindow = gtk.AboutDialog()
         aboutwindow.set_parent(self.window)
         aboutwindow.set_title("About " + pname)
@@ -548,6 +662,7 @@ class scolor():
         aboutwindow.set_website_label("Github Page")
         aboutwindow.set_authors(["Phillip Thelen <viirus@pherth.net>",])
         aboutwindow.set_wrap_license(True)
+        aboutwindow.set_logo(pixbuf)
         aboutwindow.set_license("""Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
