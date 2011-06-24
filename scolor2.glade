@@ -90,6 +90,12 @@
     <property name="can_focus">False</property>
     <property name="stock">gtk-refresh</property>
   </object>
+  <object class="GtkImage" id="image10">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="stock">gtk-save</property>
+    <property name="icon-size">1</property>
+  </object>
   <object class="GtkListStore" id="liststore1">
     <columns>
       <!-- column-name name -->
@@ -130,6 +136,18 @@
                   <object class="GtkMenu" id="menu1">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <child>
+                      <object class="GtkImageMenuItem" id="imagemenuitem6">
+                        <property name="label" translatable="yes">Export all colors</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="use_action_appearance">False</property>
+                        <property name="use_underline">True</property>
+                        <property name="image">image10</property>
+                        <property name="use_stock">False</property>
+                        <signal name="activate" handler="export_all_colors" swapped="no"/>
+                      </object>
+                    </child>
                     <child>
                       <object class="GtkImageMenuItem" id="imagemenuitem5">
                         <property name="label">gtk-quit</property>
@@ -541,9 +559,10 @@
                             <property name="height_request">100</property>
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
-                            <signal name="drag-drop" handler="drag_dropped" swapped="no"/>
-                            <signal name="drag-begin" handler="drag_starts" swapped="no"/>
-                            <signal name="drag-motion" handler="drag_motion" swapped="no"/>
+                            <signal name="drag-drop" handler="cmpdrag_dropped" swapped="no"/>
+                            <signal name="drag-begin" handler="cmpdrag_starts" swapped="no"/>
+                            <signal name="drag-motion" handler="cmpdrag_motion" swapped="no"/>
+                            <signal name="drag-failed" handler="cmpdrag_failed" swapped="no"/>
                             <child>
                               <placeholder/>
                             </child>
@@ -598,8 +617,6 @@
                         <property name="rubber_banding">True</property>
                         <signal name="cursor-changed" handler="colorrow_selected" swapped="no"/>
                         <signal name="button-press-event" handler="popup_menu_treeview" swapped="no"/>
-                        <signal name="drag-motion" handler="color_dragged" swapped="no"/>
-                        <signal name="drag-begin" handler="drag_starts" swapped="no"/>
                         <child>
                           <object class="GtkTreeViewColumn" id="treeviewcolumn1">
                             <property name="resizable">True</property>

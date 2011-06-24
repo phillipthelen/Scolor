@@ -27,7 +27,7 @@ import random
 import os
 import ConfigParser
 import xml.dom.minidom
-import time
+import datetime
 
 pname = "Scolor"
 version = "0.4"
@@ -62,7 +62,7 @@ class Color():
         blue = int(round(blue / pers * 2.55))
         return red, green, blue
 
-class scolor():
+class Scolor():
     
     def main_quit(self, widget=None):
         rect = self.window.allocation
@@ -585,16 +585,21 @@ class scolor():
         string = ''.join(rc)
         return string.strip()
         
-    def drag_select(self, widget, context):
+    def cmpdrag_select(self, widget, context):
         self.dragwidget = widget
 
-    def drag_starts(self, widget, context):
+    def cmpdrag_starts(self, widget, context):
         color = self.dragwidget.get_style().bg[0]
         context.set_icon_pixbuf(self.draw_colorbuf(color, 32, 32), 20, 22)
         self.dragwidget.hide()
         
-    def drag_dropped(self, widget, context, x, y, time):
+    def cmpdrag_dropped(self, widget, context, x, y, time):
         position = -1
+        compboxalloc = self.comparisonbox.get_allocation()
+        print x, compboxalloc.x, y, compboxalloc.y
+        if x < 0 or y < 0 or x > compboxallox.x or y > compboxalloc.y:
+            print False
+            return False
         for widget in self.comparisonbox.get_children():
             alloc = widget.get_allocation()
             if alloc.x +  (alloc.width / 2) > x:
@@ -608,11 +613,14 @@ class scolor():
         context.finish(True, False, time)
         return True
 
-    def drag_motion(self, widget, context, x, y, time):
+    def cmpdrag_motion(self, widget, context, x, y, time):
         context.drag_status(gtk.gdk.ACTION_MOVE, time)
         return True
     
-    def color_dragged(self, widget, context, x, y, time):
+    def cmpdrag_failed(self, widget, context, result):
+        self.dragwidget.show()
+    
+    def cmpcolor_dragged(self, widget, context, x, y, time):
         pthinfo = self.treeview.get_path_at_pos(x, y)
         if pthinfo is not None:
                 path, col, cellx, celly = pthinfo
@@ -630,7 +638,7 @@ class scolor():
                 color.name = item[2]
                 eb = gtk.EventBox()
                 eb.modify_bg(0, color.color)
-                eb.connect("button-press-event", self.drag_select)
+                eb.connect("button-press-event", self.cmpdrag_select)
                 self.tooltips.set_tip(eb, "%s\n%s\n%s" % (color.name, color.get_hexstr(), color.get_rgbstr()))
                 self.comparisonbox.pack_start(eb, True, True, 0)
                 eb.show_all()
@@ -644,10 +652,59 @@ class scolor():
                     color.name = name
                     eb = gtk.EventBox()
                     eb.modify_bg(0, color.color)
-                    eb.connect("button-press-event", self.drag_select)
+                    eb.connect("button-press-event", self.cmpdrag_select)
                     self.tooltips.set_tip(eb, "%s\n%s\n%s" % (color.name, color.get_hexstr(), color.get_rgbstr()))
                     self.comparisonbox.pack_start(eb, True, True, 0)
                     eb.show_all()
+    
+    def export_all_colors(self, widget):
+        filedialog = gtk.FileChooserDialog(action=gtk.FILE_CHOOSER_ACTION_SAVE, buttons=(gtk.STOCK_CANCEL,gtk.RESPONSE_CANCEL,gtk.STOCK_SAVE,gtk.RESPONSE_OK))
+        filedialog.set_default_response(gtk.RESPONSE_OK)
+        
+        response = filedialog.run()
+        if response == gtk.RESPONSE_OK:
+            path = filedialog.get_filename()
+            rest, filename = path.rsplit("/", 1)
+            folder = rest.rsplit("/", 1)[1]
+            if os.path.exists(path):
+                confirmation = self.confirmdialog(filename=filename, folder=folder)
+                if confirmation == gtk.RESPONSE_OK:
+                    date = datetime.date.today()        
+                    f = file(path, "w")
+                    f.write("""GIMP Palette
+Name: Scolor Colors, exported {0}/{1}/{2}
+Columns: 0\n""".format(date.year, date.month, date.day))
+                    for color in self.colorview:
+                        if color[0] == False:
+                            col = Color(color[3], color[4], color[5])
+                            red, green, blue = col.get_rgb()
+                            if color[2] != "":
+                                name = color[2]
+                            else:
+                                name = color[1]
+                            f.write("{0:>3} {1:>3} {2:>3} {3}\n".format(red, green, blue, name))
+                        else:
+                            piter = self.colorview.get_iter(row[0])
+                            children = self.colorview.iter_n_children(piter)
+                            for i in range(0, children):
+                                child = self.colorview.iter_nth_child(piter, i)
+                                hexcode, name, red, green, blue = self.colorview.get(child, 1, 2, 3, 4, 5)
+                                col = Color(red, green, blue)
+                                col.name = name
+                                red, green, blue = col.get_rgb()
+                                if name == "":
+                                    name = hexcode
+                                f.write("{0:>3} {1:>3} {2:>3} {3}\n".format(red, green, blue, name))
+                        filedialog.destroy()
+    
+    def confirmdialog(self, filename="", folder=""):
+        dialog = gtk.MessageDialog(buttons=(gtk.BUTTONS_OK_CANCEL), type=gtk.MESSAGE_QUESTION,
+            message_format='A file named "{0}" already exists.  Do you want to replace it?'.format(filename))
+        if secmessage != "":
+            dialog.format_secondary_text('The file already exists in "{0}".  Replacing it will overwrite its contents.'.format(folder))
+        response = dialog.run()
+        dialog.destroy()
+        return response
     
     def about(self, widget=None):
         pixbuf = gtk.gdk.pixbuf_new_from_file("icon.svg")
@@ -684,5 +741,5 @@ THE SOFTWARE.""")
         aboutwindow.destroy()
         
 if __name__ == "__main__":
-    scolor()
+    Scolor()
     gtk.main()
