@@ -32,40 +32,51 @@ import datetime
 pname = "Scolor"
 version = "0.4"
 
+# Each Class represents a Color, that holds a gtk.gdk.Color and additional
+# functions and attributes
 class Color():
     name = ""
     group = ""
     
     def __init__(self, red, blue, green):
+        # Need to create a Color instance
         self.color = gtk.gdk.Color(red, blue, green)
     
+    # Returns the hex code of the Color
     def get_hexstr(self):
         red, green, blue = self.get_rgb()
         return "#%02X%02X%02X" % (red, green, blue)
         
-    
+    # Returns the RGB codes of the color in a formatted form
     def get_rgbstr(self):
         red, green, blue = self.get_rgb()
         return "rgb(%s, %s, %s)" % (red, green, blue)
         
+    # Returns the single rgb colors in hex form (as number)
     def get_hex(self):
         red, green, blue = self.get_rgb()
         return hex(red), hex(green), hex(blue)
     
+    # Returns the single rgb colors as integers (from 0 to 255)
     def get_rgb(self):
         red = self.color.red
         green = self.color.green
         blue = self.color.blue
+        # Totally complex mathematical stuff, to calculate the value from
+        # 65535 thingy to 255 thingy
         pers = (65535 / 100.0)
         red = int(round(red / pers * 2.55))
         green = int(round(green / pers * 2.55))
         blue = int(round(blue / pers * 2.55))
         return red, green, blue
 
+# The main Scolor class
 class Scolor():
     
+    # Quit methode. Used to save the current colors and settings
     def main_quit(self, widget=None):
         rect = self.window.allocation
+        # Save the window position
         if not self.config.has_section('WINDOW'):
             self.config.add_section('WINDOW')
         self.config.set('WINDOW','width', rect.width)
@@ -77,6 +88,7 @@ class Scolor():
         self.config.set('WINDOW','columnwidth', int(self.treeview.get_column(0).get_width()))
         self.config.set('WINDOW','compareexpanded', int(self.compareexpander.get_expanded()))
         
+        # Save the values of the last color selected
         if not self.config.has_section("LASTCOL"):
             self.config.add_section("LASTCOL")
         self.config.set("LASTCOL","name", self.actcolor.name)
@@ -85,18 +97,22 @@ class Scolor():
         self.config.set("LASTCOL","green", self.actcolor.color.green)
         self.config.set("LASTCOL","blue", self.actcolor.color.blue)
         
+        # Write in the config file
         configfile = open(self.configpath+'Scolor.cfg', 'w')
         self.config.write(configfile)
         configfile.close()
-        
+        # Create a new XML document, to save the colors
         doc = xml.dom.minidom.Document()
         
         colors = doc.createElement("colors")
         doc.appendChild(colors)
-
+        
+        # Iter through the elements in the treeview
         for entry in self.colorview:
             if entry[0] == True:
+                # Entry is a group
                 children = entry.iterchildren()
+                # Iter through the colors in the group
                 for e in children:
                     color = doc.createElement("color")
                     colors.appendChild(color)
@@ -120,13 +136,13 @@ class Scolor():
                     values.setAttribute("group", entry[2])
                     color.appendChild(values)
             else:
+                # Element is a color
                 color = doc.createElement("color")
                 colors.appendChild(color)
                 
                 name = doc.createElement("name")
                 color.appendChild(name)
 
-                # Give the <p> elemenet some text
                 nametext = doc.createTextNode(entry[2])
                 name.appendChild(nametext)
                 
@@ -136,17 +152,20 @@ class Scolor():
                 values.setAttribute("blue", str(entry[5]))
                 color.appendChild(values)
         
-        # Print our newly created XML
+        # Save the generated XML document
         coldoc = open(self.configpath+'colors.xml', 'w')
         coldoc.write(doc.toprettyxml(indent="  "))
         coldoc.close()
+        # Actually shut down the program
         gtk.main_quit()
 
     def __init__(self):
+        # Load the settings
         self.load_config()
+        # Initialize the gui
         self.load_gui()
         
-
+    #Loads the GUI. Imports all the widgets and then applies the settings
     def load_gui(self):
         self.gui = gtk.Builder()
         self.gui.add_from_file("scolor2.glade")
@@ -195,22 +214,26 @@ class Scolor():
             self.actcolor.group = self.config.get("LASTCOL", "group")
         else:
             self.actcolor = Color(0, 0, 0)
+        # Initialize some storage stuff
         self.colorlist = []
         self.colorlist.append(self.actcolor)
         self.redraw_colors()
         self.change_color(self.actcolor)
         
+        # Load the saved colors
         self.parse_colors()
         
         self.gui.connect_signals(self)
         self.window.connect("destroy", self.main_quit)
         self.window.show_all()
 
+    # Load the config file
     def load_config(self):
         self.config=ConfigParser.ConfigParser()
         self.configpath = os.path.expanduser('~')+'/.config/Scolor/'
         if os.path.exists(self.configpath):
             if os.path.exists(self.configpath +'Scolor.cfg'):
+                # Config exists and gets opened
                 configfile= open(self.configpath +'Scolor.cfg')
                 self.config.readfp(configfile)
                 self.config.read(configfile)
@@ -219,25 +242,31 @@ class Scolor():
         else:
             os.makedirs(self.configpath)
 
+    # Load all saved colors from the xml file
     def parse_colors(self):
         if os.path.exists(self.configpath):
             if os.path.exists(self.configpath +'colors.xml'):
+                # XML file exists and is loaded
                 glist = {}
                 colorfile = xml.dom.minidom.parse(self.configpath +'colors.xml')
                 colors = colorfile.getElementsByTagName("color")
+                # Each color is loaded
                 for color in colors:
-                    
+                    # Load the group
                     groupn = color.getElementsByTagName("group")
                     if groupn != []:
+                        # Color belongs to a group
                         groupn = self.xmlgetText(groupn[0].childNodes)
                         if not groupn in glist:
-                            
+                            # Group is loaded for the first time
                             group = [1, "", groupn, 0, 0, 0, None]
                             piter = self.colorview.append(None, group)
                             glist[groupn] = piter
                         else:
+                            # Group was already added
                             piter = glist[groupn]
                     else:
+                        # Color has no group
                         piter = None
                     
                     values = color.getElementsByTagName("values")[0]
@@ -251,9 +280,10 @@ class Scolor():
                     pixbuf = self.draw_colorbuf(col.color)
                     newcol = [0, col.get_hexstr(), col.name, col.color.red, col.color.green, col.color.blue, pixbuf]
                     self.colorview.append(piter, newcol)
+                # Expand all groups. could be edited, so that the state is saved per group
                 self.treeview.expand_all()
 
-
+    # Add a new color to the displaybox (Eventbox containing a label)
     def new_color(self, red, green, blue, name="", act=False):
         col = Color(int(red), int(green), int(blue))
         col.name = name
@@ -272,18 +302,23 @@ class Scolor():
         label.set_text("%s\n%s\n%s" % (col.name, col.get_hexstr(), col.get_rgbstr()))
         label.set_justify(gtk.JUSTIFY_CENTER)
         if (col.color.red + col.color.green + col.color.blue) < 100000:
+            # Color is lighter than averaged gray, so the textcolor is set to white.
             label.modify_fg(0, gtk.gdk.Color(65535, 65535, 65535))
         self.colorbox.pack_start(frame, True, True, 0)
         frame.show_all()
-     
+    
+    #get the active mode (currently only "Monochrome")
     def change_mode(self, widget=None):
         id = self.modebox.get_active()
         if id == 1:
             None
             
+    # Redraw the display of the colors.
     def redraw_colors(self, widget=None, color=None):
         if color == None:
             color = self.actcolor
+        
+        # Clear the hbox widget and the colorlist
         colors = self.colorbox.get_children()
         for i in colors:
             self.colorbox.remove(i)
@@ -332,12 +367,14 @@ class Scolor():
             blue = int(color.color.blue + blstep*i)
             self.new_color(red, green, blue)
             
+    # Set the new color according to the one selected in the colorwidget
     def set_color(self, widget=None):
         colorsel = self.colorbutton.get_color()
         color = Color(colorsel.red, colorsel.green, colorsel.blue)
         self.redraw_colors(self, color=color)
         self.actcolor = color
-        
+    
+    # Enlighten the color by ~6.5%
     def lighten_color(self, widget=None, color=None):
         if color == None:
             color = self.actcolor
@@ -359,6 +396,7 @@ class Scolor():
         self.redraw_colors()
         self.reload_toolbar()
         
+    # Darken the color by ~6.5%
     def darken_color(self, widget=None, color=None):
         if color == None:
             color = self.actcolor
@@ -379,14 +417,17 @@ class Scolor():
         self.actcolor = color
         self.redraw_colors()
         self.reload_toolbar()
-        
+    
+    # Saturate the color
     def saturate_color(self, widget=None, color=None):
         if color == None:
             color = self.actcolor
         red = color.color.red
         green = color.color.green
         blue = color.color.blue
+        # Get the average gray color
         avg = (red + green + blue) / 3
+        # The colors are calculated "away" from the average
         if red > avg and red <= 61535:
             red += 4000
         elif red < avg-2000 and red  >= 4000:
@@ -406,14 +447,17 @@ class Scolor():
         color.color.blue = blue
         self.change_color(color)
         self.redraw_colors()
-
+    
+    # Desaturate the color
     def desaturate_color(self, widget=None, color=None):
         if color == None:
             color = self.actcolor
         red = color.color.red
         green = color.color.green
         blue = color.color.blue
+        # Get the average gray color
         avg = (red + green + blue) / 3
+        # The colors are calculated "towards" from the average
         if red >= avg+4000:
             red -= 4000
         elif red <= avg-4000:
@@ -435,17 +479,20 @@ class Scolor():
         self.redraw_colors()
         #self.reload_toolbar(self, color=color)
         
+    # Generate a random color and set it as active
     def random_color(self, widget=None):
             red = random.randint(1, 65535)
             green = random.randint(1, 65535)
             blue = random.randint(1, 65535)
             self.change_color(Color(red, green, blue))
             self.redraw_colors()
-            
+    
+    # Is supposed reload the toolbar (set buttons sensitive). Currently just takes space away
     def reload_toolbar(self, widget=None, color=None):
         if color.color == None:
             color = self.actcolor
     
+    # Select a color from the hbox
     def select_color(self, widget=None, event=None):
         parent = widget.parent
         frames = self.colorbox.get_children()
@@ -456,19 +503,21 @@ class Scolor():
             else:
                 frame.modify_bg(0, gtk.gdk.Color(65535, 65535, 65535))
         if event.button == 3:
+            # Right mousebutton is clicked and the popup menu is displayed
             self.popupremove.set_sensitive(False)
             self.popupcopy.set_sensitive(True)
             time = event.time
             self.colorpopup.popup( None, None, None, event.button, time)
             return True
     
+    # Change the currently active color. is called, when the statusbar and the Colorchooser need to be updated
     def change_color(self, color):
         self.actcolor = color
         self.statusbar.pop(0)
         self.statusbar.push(0, "Current color: %s" % self.actcolor.get_hexstr())
         self.colorbutton.set_color(self.actcolor.color)
         
-    
+    # Save a color (i.e. add it to the sidebar)
     def save_color(self, widget=None, col=None):
         if col == None:
             col = self.actcolor
@@ -476,15 +525,19 @@ class Scolor():
         newcol = [0, col.get_hexstr(), col.name, col.color.red, col.color.green, col.color.blue, pixbuf]
         row, col = self.treeview.get_cursor()
         if row != None:
+            # There already is a row selected
             if self.colorview[row][0] == True or len(row) == 2:
+                # Selected row is a group
                 piter = self.colorview.get_iter(row[0])
                 firrow = self.colorview.get_path(piter)[0]
                 secrow = self.colorview.iter_n_children(piter)
                 path = (firrow, secrow)
             else:
+                # Selected row is a color
                 piter = None
                 path = (len(self.colorview), )
         else:
+            # There isn't any row selected
             piter = None
             path = (len(self.colorview), )
         self.colorview.append(piter, newcol)
@@ -493,6 +546,7 @@ class Scolor():
             self.treeview.expand_row(row, True)
         self.treeview.set_cursor(path, col, True)
     
+    # Create a pixbuf, with the color and a 1px border (or none, if set so)
     def draw_colorbuf(self, color, x=16, y=16, border=True):
         pixbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8, x, y)
         drawable = gtk.gdk.Pixmap(None, x, y, 24)
@@ -508,6 +562,7 @@ class Scolor():
         pixbuf.get_from_drawable(drawable, cmap, 0, 0, 0, 0, x, y)
         return pixbuf
     
+    # Remove a color from the treeview
     def remove_color(self, widget=None):
         row, col = self.treeview.get_cursor()
         item = self.colorview[row]
@@ -515,19 +570,22 @@ class Scolor():
             piter = self.colorview.get_iter(row)
             self.colorview.remove(piter)
     
+    # Add a new group to the treeview
     def add_group(self, widget=None):
         group = [1, "", "Group", 0, 0, 0, None]
         self.colorview.append(None, group)
         col = self.treeview.get_column(0)
         self.treeview.set_cursor(len(self.colorview)-1, col, True)
         
+    # Remove a group and all the colors that belong to it from the treeview
     def remove_group(self, widget=None):
         row, col = self.treeview.get_cursor()
         item = self.colorview[row]
         if item[0] == True:
             piter = self.colorview.get_iter(row)
             self.colorview.remove(piter)
-        
+    
+    # Save the name of the row that was edited
     def save_name(self, widget=None, pos=None, name=None):
         item = self.colorview[pos]
         self.colorview[pos][2] = name
@@ -538,10 +596,12 @@ class Scolor():
             self.redraw_colors()
         self.treeview.show_all()
     
+    # Set stuff, when a row was selected
     def colorrow_selected(self, widget=None):
         row, col = self.treeview.get_cursor()
         item = self.colorview[row]
         if item[0] == False:
+            # Row is a color
             color = Color(item[3], item[4], item[5])
             color.name = item[2]
             self.change_color(color)
@@ -549,9 +609,11 @@ class Scolor():
             self.removecolorsave.set_sensitive(True)
             self.removegroupsave.set_sensitive(False)
         else:
+            # Row is a group
             self.removecolorsave.set_sensitive(False)
             self.removegroupsave.set_sensitive(True)
     
+    # Open the popup menu for the treeview
     def popup_menu_treeview(self,widget=None, event=None):
         if event.button == 3:
             x = int(event.x)
@@ -573,10 +635,12 @@ class Scolor():
                 self.colorpopup.popup( None, None, None, event.button, time, self.actcolor)
             return True
     
+    # Copy the hexcode of a color to the clipboard
     def copy_color(self, widget):
         hexstr = self.actcolor.get_hexstr()
         self.clipboard.set_text(hexstr)
     
+    # Get the text from an XML node
     def xmlgetText(self, nodelist):
         rc = []
         for node in nodelist:
@@ -584,25 +648,32 @@ class Scolor():
                 rc.append(node.data)
         string = ''.join(rc)
         return string.strip()
-        
+    
+    # Comparison, Select the widget that is supposed to be dragged
     def cmpdrag_select(self, widget, context):
         self.dragwidget = widget
 
+    # draw a pixbuf with the color and hide the original widget
     def cmpdrag_starts(self, widget, context):
         color = self.dragwidget.get_style().bg[0]
         context.set_icon_pixbuf(self.draw_colorbuf(color, 32, 32), 20, 22)
         self.dragwidget.hide()
-        
+    
+    # Check the new position and then move the widget there
     def cmpdrag_dropped(self, widget, context, x, y, time):
         position = -1
         compboxalloc = self.comparisonbox.get_allocation()
         print x, compboxalloc.x, y, compboxalloc.y
         if x < 0 or y < 0 or x > compboxallox.x or y > compboxalloc.y:
-            print False
+            # Widget was dropped outside of the parent. Drop fails
             return False
+        # Iter through the widgets in the comparisonbox
         for widget in self.comparisonbox.get_children():
+            
             alloc = widget.get_allocation()
+            #check if the widget was placed in the first halfth of the current widget
             if alloc.x +  (alloc.width / 2) > x:
+                # If yes, the position is set to one before the current widget
                 position = self.comparisonbox.child_get_property(widget, "position")
                 if position > self.comparisonbox.child_get_property(self.dragwidget, "position"):
                     position -= 1
@@ -613,27 +684,33 @@ class Scolor():
         context.finish(True, False, time)
         return True
 
+    # Motionstuff
     def cmpdrag_motion(self, widget, context, x, y, time):
         context.drag_status(gtk.gdk.ACTION_MOVE, time)
         return True
     
+    # Drag failed (i.e. when it was dropped outside of the widget) and widget is placed on original position
     def cmpdrag_failed(self, widget, context, result):
         self.dragwidget.show()
     
+    # dunno
     def cmpcolor_dragged(self, widget, context, x, y, time):
         pthinfo = self.treeview.get_path_at_pos(x, y)
         if pthinfo is not None:
                 path, col, cellx, celly = pthinfo
                 item = self.colorview[path]
     
+    # Redraw the colors in the Comparisonbox based on the selected colors in the treeview
     def redraw_comparison(self, widget=None):
         widgets = self.comparisonbox.get_children()
         rows = self.treeselection.get_selected_rows()
         for i in widgets:
             self.comparisonbox.remove(i)
+        # Iter through the selected rows
         for row in rows[1]:
             item = self.colorview[row]
             if item[0] == False:
+                # Item is a color
                 color = Color(item[3], item[4], item[5])
                 color.name = item[2]
                 eb = gtk.EventBox()
@@ -643,6 +720,7 @@ class Scolor():
                 self.comparisonbox.pack_start(eb, True, True, 0)
                 eb.show_all()
             else:
+                # Item is a group
                 piter = self.colorview.get_iter(row[0])
                 children = self.colorview.iter_n_children(piter)
                 for i in range(0, children):
@@ -657,16 +735,19 @@ class Scolor():
                     self.comparisonbox.pack_start(eb, True, True, 0)
                     eb.show_all()
     
+    # Export the colors to a gimp colorsheme
     def export_all_colors(self, widget):
         filedialog = gtk.FileChooserDialog(action=gtk.FILE_CHOOSER_ACTION_SAVE, buttons=(gtk.STOCK_CANCEL,gtk.RESPONSE_CANCEL,gtk.STOCK_SAVE,gtk.RESPONSE_OK))
         filedialog.set_default_response(gtk.RESPONSE_OK)
         
         response = filedialog.run()
+        # valid path was returned
         if response == gtk.RESPONSE_OK:
             path = filedialog.get_filename()
             rest, filename = path.rsplit("/", 1)
             folder = rest.rsplit("/", 1)[1]
             if os.path.exists(path):
+                # This part is fucked up and should be restructured. currently only works if you overwrite a file m(
                 confirmation = self.confirmdialog(filename=filename, folder=folder)
                 if confirmation == gtk.RESPONSE_OK:
                     date = datetime.date.today()        
@@ -697,6 +778,7 @@ Columns: 0\n""".format(date.year, date.month, date.day))
                                 f.write("{0:>3} {1:>3} {2:>3} {3}\n".format(red, green, blue, name))
                         filedialog.destroy()
     
+    # Prompt for confirmation
     def confirmdialog(self, filename="", folder=""):
         dialog = gtk.MessageDialog(buttons=(gtk.BUTTONS_OK_CANCEL), type=gtk.MESSAGE_QUESTION,
             message_format='A file named "{0}" already exists.  Do you want to replace it?'.format(filename))
@@ -706,6 +788,7 @@ Columns: 0\n""".format(date.year, date.month, date.day))
         dialog.destroy()
         return response
     
+    # Print the about dialog with infos about the program
     def about(self, widget=None):
         pixbuf = gtk.gdk.pixbuf_new_from_file("icon.svg")
         aboutwindow = gtk.AboutDialog()
@@ -739,7 +822,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.""")
         result = aboutwindow.run()
         aboutwindow.destroy()
-        
+
+# Run the main class, if file is called directly
 if __name__ == "__main__":
     Scolor()
     gtk.main()
