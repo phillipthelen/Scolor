@@ -217,6 +217,7 @@ class Scolor():
         # Initialize some storage stuff
         self.colorlist = []
         self.colorlist.append(self.actcolor)
+        self.actmode = self.modebox.get_active()
         self.redraw_colors()
         self.change_color(self.actcolor)
         
@@ -309,15 +310,56 @@ class Scolor():
     
     #get the active mode (currently only "Monochrome")
     def change_mode(self, widget=None):
-        id = self.modebox.get_active()
-        if id == 1:
-            None
+        self.actmode = self.modebox.get_active()
+        self.redraw_colors()
             
     # Redraw the display of the colors.
     def redraw_colors(self, widget=None, color=None):
         if color == None:
             color = self.actcolor
-        
+        count = self.colorcount.get_value()
+        minred = 0
+        mingreen = 0
+        minblue = 0
+        if self.actmode == 0:
+            pos = self.colorpos.get_value()
+            
+            if pos > count:
+                pos = count
+                self.colorpos.set_value(pos)
+            
+            self.colorpos.set_range(1, count)
+            self.colorpos.set_sensitive(True)
+            self.colorcount.set_range(2, 10)
+            maxred = 65535
+            maxgreen = 65535
+            maxblue = 65535
+        elif self.actmode == 1:
+            pos = 1
+            self.colorpos.set_sensitive(False)
+            self.colorcount.set_range(2, 10)
+            maxred = 65535 - color.color.red
+            maxgreen = 65535 - color.color.green
+            maxblue = 65535 - color.color.blue
+        elif self.actmode == 2:
+            pos = self.colorpos.get_value()
+            
+            if pos > count-1:
+                pos = count-1
+                self.colorpos.set_value(pos)
+            elif pos == 1:
+                pos = 2
+                self.colorpos.set_value(2)
+            self.colorcount.set_range(3, 10)
+            self.colorpos.set_range(2, count-1)
+            self.colorpos.set_sensitive(True)
+            maxred = color.color.blue
+            maxgreen = color.color.red
+            maxblue = color.color.green
+            
+            minred = color.color.green
+            mingreen = color.color.blue
+            minblue = color.color.red
         # Clear the hbox widget and the colorlist
         colors = self.colorbox.get_children()
         for i in colors:
@@ -325,41 +367,32 @@ class Scolor():
             
         del self.colorlist[:]
         
-        count = self.colorcount.get_value()
-        pos = self.colorpos.get_value()
-        
-        if pos > count:
-            pos = count
-            self.colorpos.set_value(pos)
-        
-        self.colorpos.set_range(1, count)
-        
         if pos > 1:
             rdstep = (color.color.red) / (pos-1)
             gdstep = (color.color.green) / (pos-1)
             bdstep = (color.color.blue) / (pos-1)
         else:
-            rdstep = color.color.red
-            gdstep = color.color.green
-            bdstep = color.color.blue
+            rdstep = minred
+            gdstep = mingreen
+            bdstep = minblue
         
-        for i in range(1, int(pos)):
-            i = pos - i
-            red = int(color.color.red - rdstep*i)
-            green = int(color.color.green - gdstep*i)
-            blue = int(color.color.blue - bdstep*i)
+        for i in range(0, int(pos-1)):
+            #i = pos - i
+            red = int(minred + rdstep*i)
+            green = int(mingreen + gdstep*i)
+            blue = int(minblue + bdstep*i)
             self.new_color(red, green, blue)
             
         self.new_color(color.color.red, color.color.green, color.color.blue, act=True, name=color.name)
         
         if (count-pos) > 1:
-            rlstep = (65535-color.color.red) / (count-pos)
-            glstep = (65535-color.color.green) / (count-pos)
-            blstep = (65535-color.color.blue) / (count-pos)
+            rlstep = (maxred-color.color.red) / (count-pos)
+            glstep = (maxgreen-color.color.green) / (count-pos)
+            blstep = (maxblue-color.color.blue) / (count-pos)
         else:
-            rlstep = 65535-color.color.red
-            glstep = 65535-color.color.green
-            blstep = 65535-color.color.blue
+            rlstep = maxred-color.color.red
+            glstep = maxgreen-color.color.green
+            blstep = maxblue-color.color.blue
 
         for i in range(1, int(count-pos+1)):
             red = int(color.color.red + rlstep*i)
@@ -620,7 +653,7 @@ class Scolor():
             y = int(event.y)
             time = event.time
             pthinfo = self.treeview.get_path_at_pos(x, y)
-            if pthinfo is not None:
+            if pthinfo != None:
                 path, col, cellx, celly = pthinfo
                 item = self.colorview[path]
                 self.popupremove.set_sensitive(True)
