@@ -30,7 +30,7 @@ import xml.dom.minidom
 import datetime
 
 pname = "Scolor"
-version = "0.4"
+version = "0.4.1"
 
 # Each Class represents a Color, that holds a gtk.gdk.Color and additional
 # functions and attributes
