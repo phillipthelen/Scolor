@@ -108,43 +108,36 @@ class Scolor():
         doc.appendChild(colors)
         
         # Iter through the elements in the treeview
-        for entry in self.colorview:
+        for (counter, entry) in enumerate(self.colorview):
             if entry[0] == True:
                 # Entry is a group
+                group = doc.createElement("group")
+                colors.appendChild(group)
+                
+                group.setAttribute("name", entry[2])
+                group.setAttribute("pos", str(counter))
+                
                 children = entry.iterchildren()
                 # Iter through the colors in the group
-                for e in children:
+                for (c, e) in enumerate(children):
                     color = doc.createElement("color")
-                    colors.appendChild(color)
+                    group.appendChild(color)
                     
-                    name = doc.createElement("name")
-                    color.appendChild(name)
-
-                    nametext = doc.createTextNode(e[2])
-                    name.appendChild(nametext)
-                    
-                    group = doc.createElement("group")
-                    color.appendChild(group)
-
-                    grouptext = doc.createTextNode(entry[2])
-                    group.appendChild(grouptext)
+                    color.setAttribute("name", e[2])
+                    color.setAttribute("pos", str(counter) + ":" + str(c))
                     
                     values = doc.createElement("values")
                     values.setAttribute("red", str(e[3]))
                     values.setAttribute("green", str(e[4]))
                     values.setAttribute("blue", str(e[5]))
-                    values.setAttribute("group", entry[2])
                     color.appendChild(values)
             else:
                 # Element is a color
                 color = doc.createElement("color")
                 colors.appendChild(color)
                 
-                name = doc.createElement("name")
-                color.appendChild(name)
-
-                nametext = doc.createTextNode(entry[2])
-                name.appendChild(nametext)
+                color.setAttribute("name", entry[2])
+                color.setAttribute("pos", str(counter))
                 
                 values = doc.createElement("values")
                 values.setAttribute("red", str(entry[3]))
@@ -250,37 +243,39 @@ class Scolor():
                 # XML file exists and is loaded
                 glist = {}
                 colorfile = xml.dom.minidom.parse(self.configpath +'colors.xml')
-                colors = colorfile.getElementsByTagName("color")
-                # Each color is loaded
-                for color in colors:
-                    # Load the group
-                    groupn = color.getElementsByTagName("group")
-                    if groupn != []:
-                        # Color belongs to a group
-                        groupn = self.xmlgetText(groupn[0].childNodes)
-                        if not groupn in glist:
-                            # Group is loaded for the first time
-                            group = [1, "", groupn, 0, 0, 0, None]
+                elements = colorfile.documentElement.childNodes
+                for element in elements:
+                    try:
+                        etype = element.tagName
+                        if etype == "group":
+                            group = [1, "", element.getAttribute("name"), 0, 0, 0, None]
                             piter = self.colorview.append(None, group)
-                            glist[groupn] = piter
-                        else:
-                            # Group was already added
-                            piter = glist[groupn]
-                    else:
-                        # Color has no group
-                        piter = None
-                    
-                    values = color.getElementsByTagName("values")[0]
-                    red = values.getAttribute("red")
-                    green = values.getAttribute("green")
-                    blue = values.getAttribute("blue")
-                    col = Color(int(red), int(green), int(blue))
-                    name = color.getElementsByTagName("name")[0].childNodes
-                    col.name = self.xmlgetText(name)
-                    col.group = groupn
-                    pixbuf = self.draw_colorbuf(col.color)
-                    newcol = [0, col.get_hexstr(), col.name, col.color.red, col.color.green, col.color.blue, pixbuf]
-                    self.colorview.append(piter, newcol)
+                            for child in element.childNodes:
+                                try:
+                                    etype = child.tagName
+                                    values = child.getElementsByTagName("values")[0]
+                                    red = values.getAttribute("red")
+                                    green = values.getAttribute("green")
+                                    blue = values.getAttribute("blue")
+                                    col = Color(int(red), int(green), int(blue))
+                                    name = child.getAttribute("name")
+                                    pixbuf = self.draw_colorbuf(col.color)
+                                    newcol = [0, col.get_hexstr(), col.name, col.color.red, col.color.green, col.color.blue, pixbuf]
+                                    self.colorview.append(piter, newcol)
+                                except:
+                                    None
+                        elif etype == "color":
+                            values = element.getElementsByTagName("values")[0]
+                            red = values.getAttribute("red")
+                            green = values.getAttribute("green")
+                            blue = values.getAttribute("blue")
+                            col = Color(int(red), int(green), int(blue))
+                            name = element.getAttribute("name")
+                            pixbuf = self.draw_colorbuf(col.color)
+                            newcol = [0, col.get_hexstr(), col.name, col.color.red, col.color.green, col.color.blue, pixbuf]
+                            self.colorview.append(None, newcol)
+                    except:
+                        None
                 # Expand all groups. could be edited, so that the state is saved per group
                 self.treeview.expand_all()
 
@@ -735,38 +730,39 @@ class Scolor():
     
     # Redraw the colors in the Comparisonbox based on the selected colors in the treeview
     def redraw_comparison(self, widget=None):
-        widgets = self.comparisonbox.get_children()
-        rows = self.treeselection.get_selected_rows()
-        for i in widgets:
-            self.comparisonbox.remove(i)
-        # Iter through the selected rows
-        for row in rows[1]:
-            item = self.colorview[row]
-            if item[0] == False:
-                # Item is a color
-                color = Color(item[3], item[4], item[5])
-                color.name = item[2]
-                eb = gtk.EventBox()
-                eb.modify_bg(0, color.color)
-                eb.connect("button-press-event", self.cmpdrag_select)
-                self.tooltips.set_tip(eb, "%s\n%s\n%s" % (color.name, color.get_hexstr(), color.get_rgbstr()))
-                self.comparisonbox.pack_start(eb, True, True, 0)
-                eb.show_all()
-            else:
-                # Item is a group
-                piter = self.colorview.get_iter(row[0])
-                children = self.colorview.iter_n_children(piter)
-                for i in range(0, children):
-                    child = self.colorview.iter_nth_child(piter, i)
-                    name, red, green, blue = self.colorview.get(child, 2, 3, 4, 5)
-                    color = Color(red, green, blue)
-                    color.name = name
+        if self.compareexpander.get_expanded():
+            widgets = self.comparisonbox.get_children()
+            rows = self.treeselection.get_selected_rows()
+            for i in widgets:
+                self.comparisonbox.remove(i)
+            # Iter through the selected rows
+            for row in rows[1]:
+                item = self.colorview[row]
+                if item[0] == False:
+                    # Item is a color
+                    color = Color(item[3], item[4], item[5])
+                    color.name = item[2]
                     eb = gtk.EventBox()
                     eb.modify_bg(0, color.color)
                     eb.connect("button-press-event", self.cmpdrag_select)
                     self.tooltips.set_tip(eb, "%s\n%s\n%s" % (color.name, color.get_hexstr(), color.get_rgbstr()))
                     self.comparisonbox.pack_start(eb, True, True, 0)
                     eb.show_all()
+                else:
+                    # Item is a group
+                    piter = self.colorview.get_iter(row[0])
+                    children = self.colorview.iter_n_children(piter)
+                    for i in range(0, children):
+                        child = self.colorview.iter_nth_child(piter, i)
+                        name, red, green, blue = self.colorview.get(child, 2, 3, 4, 5)
+                        color = Color(red, green, blue)
+                        color.name = name
+                        eb = gtk.EventBox()
+                        eb.modify_bg(0, color.color)
+                        eb.connect("button-press-event", self.cmpdrag_select)
+                        self.tooltips.set_tip(eb, "%s\n%s\n%s" % (color.name, color.get_hexstr(), color.get_rgbstr()))
+                        self.comparisonbox.pack_start(eb, True, True, 0)
+                        eb.show_all()
     
     # Export the colors to a gimp colorsheme
     def export_all_colors(self, widget):
