@@ -176,7 +176,14 @@ class Scolor():
         self.comparisonbox = self.gui.get_object("comparisonbox")
         self.comparisonbox.drag_source_set(gtk.gdk.BUTTON1_MASK, [], 0)
         self.comparisonbox.drag_dest_set(0, [], gtk.gdk.ACTION_MOVE)
-        self.leftvbox = self.gui.get_object("leftvbox")
+        self.lightenbutton = self.gui.get_object("lightenbutton")
+        self.darkenbutton = self.gui.get_object("darkenbutton")
+        self.saturatebutton = self.gui.get_object("saturatebutton")
+        self.desaturatebutton = self.gui.get_object("desaturatebutton")
+        self.lightenmbutton = self.gui.get_object("lightenmbutton")
+        self.darkenmbutton = self.gui.get_object("darkenmitem")
+        self.saturatembutton = self.gui.get_object("saturatemitem")
+        self.desaturatembutton = self.gui.get_object("desaturatemitem")
         self.treeview = self.gui.get_object("treeview")
         self.treeselection = self.treeview.get_selection()
         self.treeselection.set_mode(gtk.SELECTION_MULTIPLE)
@@ -216,6 +223,7 @@ class Scolor():
         
         # Load the saved colors
         self.parse_colors()
+        self.reload_toolbar()
         
         self.gui.connect_signals(self)
         self.window.connect("destroy", self.main_quit)
@@ -456,25 +464,26 @@ class Scolor():
         # Get the average gray color
         avg = (red + green + blue) / 3
         # The colors are calculated "away" from the average
-        if red > avg and red <= 61535:
+        if 61535 >= red > avg+2000:
             red += 4000
-        elif red < avg-2000 and red  >= 4000:
+        elif 4000 <= red < avg-2000:
             red -= 4000
             
-        if green > avg+2000 and green <= 61535:
+        if 61535 >= green > avg+2000:
             green += 4000
-        elif green < avg-2000 and green >= 4000:
+        elif 4000 <= green < avg-2000:
             green -= 4000
             
-        if blue > avg+2000 and blue <= 61535:
+        if 61535 >= blue > avg+2000:
             blue += 4000
-        elif blue < avg-2000 and blue >= 4000:
+        elif 4000 <= blue < avg-2000:
             blue -= 4000
         color.color.red = red
         color.color.green = green
         color.color.blue = blue
         self.change_color(color)
         self.redraw_colors()
+        self.reload_toolbar()
     
     # Desaturate the color
     def desaturate_color(self, widget=None, color=None):
@@ -485,7 +494,7 @@ class Scolor():
         blue = color.color.blue
         # Get the average gray color
         avg = (red + green + blue) / 3
-        # The colors are calculated "towards" from the average
+        # The colors are calculated "towards" the average
         if red >= avg+4000:
             red -= 4000
         elif red <= avg-4000:
@@ -505,7 +514,7 @@ class Scolor():
         color.color.blue = blue
         self.change_color(color)
         self.redraw_colors()
-        #self.reload_toolbar(self, color=color)
+        self.reload_toolbar()
         
     # Generate a random color and set it as active
     def random_color(self, widget=None):
@@ -517,9 +526,44 @@ class Scolor():
     
     # Is supposed reload the toolbar (set buttons sensitive). Currently just takes space away
     def reload_toolbar(self, widget=None, color=None):
-        if color.color == None:
+        if color == None:
             color = self.actcolor
-    
+        col = color.color
+        if color.get_hexstr() == "#FFFFFF":
+            self.lightenbutton.set_sensitive(False)
+            self.lightenmbutton.set_sensitive(False)
+        else:
+            self.lightenbutton.set_sensitive(True)
+            self.lightenmbutton.set_sensitive(True)
+        
+        if color.get_hexstr() == "#000000":
+            self.darkenbutton.set_sensitive(False)
+            self.darkenmbutton.set_sensitive(False)
+        else:
+            self.darkenbutton.set_sensitive(True)
+            self.darkenmbutton.set_sensitive(True)
+            
+        if col.red == col.green == col.blue:
+            self.desaturatebutton.set_sensitive(False)
+            self.desaturatembutton.set_sensitive(False)
+            self.saturatebutton.set_sensitive(False)
+            self.saturatembutton.set_sensitive(False)
+        else:
+            avg = (col.red + col.green + col.blue) / 3
+            if avg+2000 >= col.red >= avg-2000 or avg+2000 >= col.green >= avg-2000 or avg+2000 >= col.blue >= avg-2000:
+                self.desaturatebutton.set_sensitive(False)
+                self.desaturatembutton.set_sensitive(False)
+            else:
+                self.desaturatebutton.set_sensitive(True)
+                self.desaturatembutton.set_sensitive(True)
+                
+            if (61535 < col.red or 4000 >= col.red) or (61535 < col.green or 4000 >= col.green) or (61535 < col.blue or 4000 >= col.blue):
+                self.saturatebutton.set_sensitive(False)
+                self.saturatembutton.set_sensitive(False)
+            else:
+                self.saturatebutton.set_sensitive(True)
+                self.saturatembutton.set_sensitive(True)
+            
     # Select a color from the hbox
     def select_color(self, widget=None, event=None):
         parent = widget.parent
@@ -544,6 +588,7 @@ class Scolor():
         self.statusbar.pop(0)
         self.statusbar.push(0, "Current color: %s" % self.actcolor.get_hexstr())
         self.colorbutton.set_color(self.actcolor.color)
+        self.reload_toolbar()
         
     # Save a color (i.e. add it to the sidebar)
     def save_color(self, widget=None, col=None):
