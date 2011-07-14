@@ -268,7 +268,7 @@ class Scolor():
                                     col = Color(int(red), int(green), int(blue))
                                     name = child.getAttribute("name")
                                     pixbuf = self.draw_colorbuf(col.color)
-                                    newcol = [0, col.get_hexstr(), col.name, col.color.red, col.color.green, col.color.blue, pixbuf]
+                                    newcol = [0, col.get_hexstr(), name, col.color.red, col.color.green, col.color.blue, pixbuf]
                                     self.colorview.append(piter, newcol)
                                 except:
                                     None
